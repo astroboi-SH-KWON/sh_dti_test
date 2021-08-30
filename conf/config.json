@@ -1,0 +1,61 @@
+{
+	"nats":{
+		"host": "192.168.0.42",
+		"port": "4222"
+	},
+	"mysql":{
+		"host": "192.168.0.42",
+		"port": 13307,
+		"user": "root",
+		"password": "ctipwd1",
+		"db": "dti"
+	},
+	"cs":[
+		{
+			"host": "192.168.0.42",
+			"port": "9001",
+			"timeout": "600000",
+			"thread": "10"
+		}
+	],
+	"logging":{
+		"version":1,
+		"formatters":{
+			"default":{
+				"format": "[%(asctime)s %(levelname)s - %(processName)s-%(threadName)s - %(filename)s(%(funcName)s):%(lineno)s] %(message)s",
+				"datefmt": "%Y-%m-%d %H:%M:%S"
+			}
+		},
+		"handlers":{
+			"console":{
+				"class": "logging.StreamHandler",
+				"level": "DEBUG",
+				"formatter": "default",
+				"stream": "ext://sys.stdout"
+			},
+			"file":{
+				"class": "logging.handlers.TimedRotatingFileHandler",
+				"level": "DEBUG",
+				"formatter": "default",
+				"filename": "{DIR}/logs/{MODE}_{MODEL_ID}.log",
+				"when": "midnight",
+				"interval": 1,
+				"backupCount": 31
+			},
+			"file_error":{
+				"class": "logging.handlers.TimedRotatingFileHandler",
+				"level": "ERROR",
+				"formatter": "default",
+				"filename": "{DIR}/logs/{MODE}_{MODEL_ID}_error.log",
+				"when": "midnight",
+				"interval": 1,
+				"backupCount": 31
+			}
+		},
+		"root":{
+			"level": "DEBUG",
+			"handlers": ["console", "file", "file_error"]
+		}
+	},
+    "create_sql":" CREATE TABLE IF NOT EXISTS dti.z_dti_ai_history (   model_id UInt32,   start_time DateTime,   end_time DateTime,   accuracy Float64,   positive_samples UInt64,   negative_samples UInt64,   total_samples UInt64,   epochs UInt64,   loss Float64,   training_time Float64,   logtime DateTime,   logdate UInt32,   hash UInt64 ) ENGINE = MergeTree PARTITION BY toYYYYMMDD(logtime) ORDER BY logtime SETTINGS index_granularity = 8192 ;;  CREATE TABLE IF NOT EXISTS dti.dti_ai_history (   model_id UInt32,   start_time DateTime,   end_time DateTime,   accuracy Float64,   positive_samples UInt64,   negative_samples UInt64,   total_samples UInt64,   epochs UInt64,   loss Float64,   training_time Float64,   logtime DateTime MATERIALIZED toDateTime(start_time),   logdate UInt32 MATERIALIZED toYYYYMMDD(logtime),   hash UInt64 MATERIALIZED cityHash64(     concat(       toString(model_id),       toString(logtime),       toString(accuracy)     )   ) ) ENGINE = Distributed(cluster, dti, z_dti_ai_history, rand()) ;;  CREATE TABLE IF NOT EXISTS dti.z_dti_ai_result (   model_id UInt32,   start_time DateTime,   end_time DateTime,   src_ip String,   dst_ip String,   dst_port UInt32, result Float64,   probs Float64,   feedback String DEFAULT '-',   packet UInt8 DEFAULT 0,   hash String DEFAULT toString(     cityHash64(       concat(         toString(model_id),         toString(logtime),         src_ip,         dst_ip,         toString(result)       )     )   ),   logtime DateTime DEFAULT start_time,   logdate UInt32 DEFAULT toYYYYMMDD(logtime) ) ENGINE = MergeTree PARTITION BY toYYYYMMDD(logtime) ORDER BY logtime SETTINGS index_granularity = 8192  ;;   CREATE TABLE IF NOT EXISTS dti.dti_ai_result (   model_id UInt32,   start_time DateTime,   end_time DateTime,   src_ip String,   dst_ip String,   dst_port UInt32, result Float64,   probs Float64,   feedback String DEFAULT '-',   packet UInt8 DEFAULT 0,   hash String MATERIALIZED toString(     cityHash64(       concat(         toString(model_id),         toString(logtime),         src_ip,         dst_ip,         toString(result)       )     )   ),   logtime DateTime MATERIALIZED toDateTime(start_time),   logdate UInt32 MATERIALIZED toYYYYMMDD(logtime) ) ENGINE = Distributed(cluster, dti, z_dti_ai_result, rand()) ;;  CREATE TABLE IF NOT EXISTS dti.z_dti_ai_cluster (   model_id UInt32,   x Float64,   y Float64,   z Float64,   result Float64,   logtime DateTime,   logdate UInt32 ) ENGINE = MergeTree PARTITION BY toYYYYMMDD(logtime) ORDER BY logtime SETTINGS index_granularity = 8192 ;;  CREATE TABLE IF NOT EXISTS dti.dti_ai_cluster (   model_id UInt32,   x Float64,   y Float64,   z Float64,   result Float64,   logtime DateTime,   logdate UInt32 MATERIALIZED toYYYYMMDD(logtime) ) ENGINE = Distributed(cluster, dti, z_dti_ai_cluster, rand())  ;;  CREATE TABLE IF NOT EXISTS dti.z_dti_ai_feedback (   model_id UInt32,   feedback_time DateTime,   start_time DateTime,   end_time DateTime,   src_ip String,   dst_ip String,   result Float64,   feedback Float64,   hash String,   logtime DateTime,   logdate UInt32 ) ENGINE = MergeTree PARTITION BY toYYYYMMDD(logtime) ORDER BY logtime SETTINGS index_granularity = 8192  ;;   CREATE TABLE IF NOT EXISTS dti.dti_ai_feedback (   model_id UInt32,   feedback_time DateTime,   start_time DateTime,   end_time DateTime,   src_ip String,   dst_ip String,   result Float64,   feedback Float64,   hash String,   logtime DateTime MATERIALIZED toDateTime(feedback_time),   logdate UInt32 MATERIALIZED toYYYYMMDD(logtime) ) ENGINE = Distributed(cluster, dti, z_dti_ai_feedback, rand()) ;;"
+}
